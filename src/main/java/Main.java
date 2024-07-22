@@ -5,19 +5,29 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Main {
   public static void main(String[] args) {
-    try {
-      ServerSocket serverSocket = new ServerSocket(4221);
-    
-      // Since the tester restarts your program quite often, setting SO_REUSEADDR
-      // ensures that we don't run into 'Address already in use' errors
-      serverSocket.setReuseAddress(true);
-    
-      Socket clientSocket = serverSocket.accept(); // Wait for connection from client.
-      System.out.println("accepted new connection");
+    ExecutorService executorService = Executors.newFixedThreadPool(10);
 
+    try (ServerSocket serverSocket = new ServerSocket(4221)) {
+      serverSocket.setReuseAddress(true);
+      System.out.println("Server is listening on port 4221");
+
+      while (true) {
+        Socket clientSocket = serverSocket.accept();
+        System.out.println("Accepted new connection");
+        executorService.submit(() -> handleClient(clientSocket));
+      }
+    } catch (IOException e) {
+      System.out.println("IOException: " + e.getMessage());
+    }
+  }
+
+  private static void handleClient(Socket clientSocket) {
+    try (clientSocket) {
       InputStream input = clientSocket.getInputStream();
       BufferedReader reader = new BufferedReader(new InputStreamReader(input));
       String line = reader.readLine();
@@ -53,9 +63,8 @@ public class Main {
       else {
         output.write("HTTP/1.1 404 Not Found\r\n\r\n".getBytes());
       }
-      output.flush();
 
-      serverSocket.close();
+      output.flush();
     } catch (IOException e) {
       System.out.println("IOException: " + e.getMessage());
     }
