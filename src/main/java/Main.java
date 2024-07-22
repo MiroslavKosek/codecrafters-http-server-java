@@ -4,6 +4,7 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.zip.GZIPOutputStream;
 
 public class Main {
   private static String directory;
@@ -44,7 +45,7 @@ public class Main {
       String urlPath = requestLine.split(" ")[1];
       OutputStream outputStream = clientSocket.getOutputStream();
       // Write the HTTP response to the output stream.
-      String httpResponse = getHttpResponse(httpMethod, urlPath, headers, inputStream);
+      String httpResponse = getHttpResponse(httpMethod, urlPath, headers, inputStream, outputStream);
       System.out.println("Sending response: " + httpResponse);
       outputStream.write(httpResponse.getBytes("UTF-8"));
       // Close the input and output streams.
@@ -64,7 +65,7 @@ public class Main {
     }
   }
 
-  private static String getHttpResponse(String httpMethod, String urlPath, Map<String, String> headers, BufferedReader inputStream)
+  private static String getHttpResponse(String httpMethod, String urlPath, Map<String, String> headers, BufferedReader inputStream, OutputStream outputStream)
       throws IOException {
     String httpResponse;
     if ("GET".equals(httpMethod)) {
@@ -72,13 +73,22 @@ public class Main {
         httpResponse = "HTTP/1.1 200 OK\r\n\r\n";
       } else if (urlPath.startsWith("/echo/")) {
         String echoStr = urlPath.substring(6); // Extract the string after "/echo/"
-        String contentEncoding = headers.get("Accept-Encoding");
-        if (contentEncoding != null && contentEncoding.contains("gzip")) {
+        byte[] responseBody;
+        if (headers.containsKey("Accept-Encoding") && headers.get("Accept-Encoding").contains("gzip")) {
+          ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+          GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream);
+          gzipOutputStream.write(echoStr.getBytes("UTF-8"));
+          gzipOutputStream.close();
+          responseBody = byteArrayOutputStream.toByteArray();
           httpResponse = "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Type: text/plain\r\nContent-Length: " +
-                        echoStr.length() + "\r\n\r\n" + echoStr;
+                        responseBody.length + "\r\n\r\n";
+          outputStream.write(httpResponse.getBytes("UTF-8"));
+          outputStream.write(responseBody);
+          return ""; // Return empty as response is already written to output stream
         } else {
+          responseBody = echoStr.getBytes("UTF-8");
           httpResponse = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " +
-                        echoStr.length() + "\r\n\r\n" + echoStr;
+                        responseBody.length + "\r\n\r\n" + echoStr;
         }
       } else if ("/user-agent".equals(urlPath)) {
         String userAgent = headers.get("User-Agent");
