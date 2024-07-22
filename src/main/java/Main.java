@@ -93,12 +93,21 @@ class RequestHandler extends Thread {
       }
       else if (requestTarget.startsWith("/echo/")) {
         String echoString = requestTarget.substring(6);
-        String outputString = "HTTP/1.1 200 OK\r\n"
-                              + "Content-Type: text/plain\r\n"
-                              + "Content-Length: " + echoString.length() +
-                              "\r\n"
-                              + "\r\n" + echoString;
-        outputStream.write(outputString.getBytes());
+        String encoding = "";
+        String buffer;
+        
+        while ((buffer = bufferedReader.readLine()) != null & !buffer.isEmpty() ) {
+          if (buffer.toLowerCase().startsWith("accept-encoding: ")) {
+            encoding = buffer.toLowerCase().replace("accept-encoding: ", "");
+            if(encoding.equals("gzip")) {
+              encoding = "Content-Encoding: gzip\r\n";
+            }
+          }
+        }
+        String response = "HTTP/1.1 200 OK\r\n" + encoding  +  "Content-Type: text/plain" + "\r\n" + "Content-Length: "
+                + echoString.length() + "\r\n" + "\r\n"
+                + echoString;
+        this.outputStream.write(response.getBytes());
       }
       else if (requestTarget.equals("/user-agent")) {
         String outputString =
@@ -142,7 +151,7 @@ class RequestHandler extends Thread {
       else {
         outputStream.write("HTTP/1.1 404 Not Found\r\n\r\n".getBytes());
       }
-      
+
       outputStream.flush();
       outputStream.close();
     } catch (IOException e) {
