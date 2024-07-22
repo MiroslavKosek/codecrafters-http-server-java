@@ -2,7 +2,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -25,13 +24,17 @@ public class Main {
       System.out.println(line);
       
       String[] HttpRequest = line.split(" ", 0);
-      OutputStream output = clientSocket.getOutputStream();
       
       if (HttpRequest[1].equals("/")) {
-        output.write("HTTP/1.1 200 OK\r\n\r\n".getBytes());
+        clientSocket.getOutputStream().write("HTTP/1.1 200 OK\r\n\r\n".getBytes());
+      }
+      else if (HttpRequest[1].startsWith("/echo/")) {
+        String msg = HttpRequest[1].substring(6);
+        String header = String.format("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", msg.length(), msg);
+        clientSocket.getOutputStream().write(header.getBytes());
       }
       else {
-        output.write("HTTP/1.1 404 Not Found\r\n\r\n".getBytes());
+        clientSocket.getOutputStream().write("HTTP/1.1 404 Not Found\r\n\r\n".getBytes());
       }
 
       serverSocket.close();
